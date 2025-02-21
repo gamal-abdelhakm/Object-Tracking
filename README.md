@@ -8,7 +8,7 @@ This application provides real-time object tracking using OpenCV and Tkinter for
 
 - **GUI Framework:** Tkinter is used to create the user interface.
 - **Video Processing:** OpenCV captures frames from the webcam.
-- **Tracking Algorithms:** The user can choose from multiple tracking methods (MIL, KCF, GOTURN, CSRT).
+- **Tracking Algorithms:** The user can choose from multiple tracking methods (MIL, KCF, CSRT).
 - **Real-time Updates:** The application continuously updates the video feed with tracking results.
 - **User Controls:** Options to select a region of interest (ROI), start tracking, and stop tracking.
 
