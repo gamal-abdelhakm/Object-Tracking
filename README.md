@@ -43,3 +43,24 @@ Simply execute the Python script:
 python app.py
 ```
 
+## Conclusion
+
+For this task, the best tracking algorithm to use is CSRT (Discriminative Correlation Filter with Channel and Spatial Reliability Tracking).
+
+### Why CSRT?
+
+CSRT is the best balance of accuracy and performance for real-time tracking with a webcam.
+
+- ✔ High Accuracy – Better than KCF & MOSSE.
+- ✔ Handles Occlusions – Recovers lost objects.
+- ✔ No Deep Learning Needed – Works without AI models.
+- ✔ Runs on CPU – No GPU required.
+- ✔ Easy to Use – Built into OpenCV.
+
+### Why Not Others?
+
+- KCF – Faster but less accurate.
+- MOSSE – Fastest but weak with occlusions.
+- MIL – Struggles with object disappearance.
+- ByteTrack/DeepSORT – Overkill for a single object.
+- MedianFlow – Fails with fast-moving objects.
