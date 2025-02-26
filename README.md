@@ -32,7 +32,7 @@ This application provides real-time object tracking using OpenCV and Tkinter for
 Ensure you have the required dependencies installed:
 
 ```bash
-pip install opencv-python pillow
+pip install opencv-contrib-python pillow
 ```
 
 ## Running the Application
