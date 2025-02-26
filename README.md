@@ -8,7 +8,7 @@ This application provides real-time object tracking using OpenCV and Tkinter for
 
 - **GUI Framework:** Tkinter is used to create the user interface.
 - **Video Processing:** OpenCV captures frames from the webcam.
-- **Tracking Algorithms:** The user can choose from multiple tracking methods (MIL, KCF, GOTURN, CSRT).
+- **Tracking Algorithms:** The user can choose from multiple tracking methods (MIL, KCF, CSRT).
 - **Real-time Updates:** The application continuously updates the video feed with tracking results.
 - **User Controls:** Options to select a region of interest (ROI), start tracking, and stop tracking.
 
@@ -32,7 +32,7 @@ This application provides real-time object tracking using OpenCV and Tkinter for
 Ensure you have the required dependencies installed:
 
 ```bash
-pip install opencv-python pillow
+pip install opencv-contrib-python pillow
 ```
 
 ## Running the Application
@@ -43,3 +43,26 @@ Simply execute the Python script:
 python app.py
 ```
 
+---
+
+## **Conclusion**
+
+- For this task, the best tracking algorithm to use is CSRT. 
+---
+
+ **Why?** : CSRT is the best balance of accuracy and performance for real-time tracking with a webcam.
+
+- **✔ High Accuracy** – Better than KCF & MOSSE.
+- **✔ Handles Occlusions** – Recovers lost objects.
+- **✔ No Deep Learning Needed** – Works without AI models.
+- **✔ Runs on CPU** – No GPU required.
+- **✔ Easy to Use** – Built into OpenCV.
+---
+
+**Why Not Others?**
+
+- **KCF** – Faster but less accurate.
+- **MOSSE** – Fastest but weak with occlusions.
+- **MIL** – Struggles with object disappearance.
+- **ByteTrack/DeepSORT** – Overkill for a single object.
+- **MedianFlow** – Fails with fast-moving objects.
