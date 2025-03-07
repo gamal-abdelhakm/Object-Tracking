@@ -1,0 +1,8 @@
+tkinter 
+cv2
+PIL
+collections
+numpy
+time
+
+
