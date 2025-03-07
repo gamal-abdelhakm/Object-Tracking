@@ -313,7 +313,7 @@ class ObjectTrackingConsole:
         
         # Clean up
         self.cap.release()
-        cv2.destroyAllWindows()
+        #cv2.destroyAllWindows()
         print("Application closed")
 
 def main(tracker_type="CSRT", show_trajectory=True, use_kalman=True, auto_recovery=True, trail_length=30, recovery_attempts=3):
