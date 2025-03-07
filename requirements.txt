@@ -1,6 +1,4 @@
-tkinter 
-cv2
-PIL
-collections
+opencv-python
 numpy
-time
+pillow
+tkinter
