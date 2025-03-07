@@ -9,7 +9,7 @@ import time
 class ObjectTrackingApp:
     def __init__(self, window):
         self.window = window
-        self.window.title("Enhanced Object Tracking")
+        self.window.title("Object Tracking")
         self.window.configure(bg="#101820")
         self.window.geometry("950x750")
 
@@ -26,20 +26,15 @@ class ObjectTrackingApp:
         self.max_points = tk.IntVar(value=60)
         self.trajectory = deque(maxlen=self.max_points.get())
         
-        # Frame processing variables
-        self.frame_skip = tk.IntVar(value=0)  # Process every nth frame
-        self.frame_count = 0
-        
         # Tracking quality variables
         self.confidence_threshold = tk.DoubleVar(value=0.5)
         self.consecutive_failures = 0
-        self.max_consecutive_failures = 10
+        self.max_consecutive_failures = tk.IntVar(value=10)
         self.last_known_bbox = None
         self.last_positions = deque(maxlen=5)  # Store recent positions for smoothing
         
-        # Performance metrics
-        self.fps = 0
-        self.process_times = deque(maxlen=30)
+        self.initial_roi_features = None
+        self.orb = cv2.ORB_create()
         
         # Initialize camera
         self.cap = None
@@ -50,6 +45,9 @@ class ObjectTrackingApp:
         self.bbox = None
         self.tracking = False
         self.kalman_filter = None
+        
+        self.use_smoothing = tk.BooleanVar(value=True)
+        self.use_kalman = tk.BooleanVar(value=True)
         
         self.setup_ui()
         self.update()
@@ -84,11 +82,6 @@ class ObjectTrackingApp:
         self.status_lbl = tk.Label(video_frame, text="Idle", font=("Arial", 12, "bold"), 
                                   fg="white", bg="#101820")
         self.status_lbl.pack(pady=(0, 5))
-        
-        # FPS Counter
-        self.fps_lbl = tk.Label(video_frame, text="FPS: 0", font=("Arial", 10), 
-                               fg="white", bg="#101820")
-        self.fps_lbl.pack()
 
         # Right frame for controls
         control_frame = tk.Frame(main_frame, bg="#2C3E50", padx=10, pady=10, width=250)
@@ -108,19 +101,6 @@ class ObjectTrackingApp:
                          values=list(self.types.keys()), state="readonly", width=15)
         tt.pack(side=tk.RIGHT)
         tt.bind("<<ComboboxSelected>>", self.on_tracker_change)
-        
-        # Camera selection
-        camera_frame = tk.Frame(control_frame, bg="#2C3E50")
-        camera_frame.pack(fill="x", pady=5)
-        tk.Label(camera_frame, text="Camera Index:", font=("Arial", 10), 
-                fg="white", bg="#2C3E50").pack(side=tk.LEFT)
-        camera_entry = tk.Spinbox(camera_frame, from_=0, to=10, width=5, 
-                                 textvariable=self.camera_index)
-        camera_entry.pack(side=tk.RIGHT)
-        
-        # Camera button
-        tk.Button(control_frame, text="Change Camera", command=self.open_camera,
-                 bg="#34495E", fg="white").pack(fill="x", pady=5)
         
         # Confidence threshold
         conf_frame = tk.Frame(control_frame, bg="#2C3E50")
@@ -147,11 +127,25 @@ class ObjectTrackingApp:
                 orient=tk.HORIZONTAL, bg="#2C3E50", fg="white",
                 command=self.update_trail_length).pack(fill="x")
         
-        # Frame skip
-        skip_frame = tk.Frame(control_frame, bg="#2C3E50")
-        skip_frame.pack(fill="x", pady=5)
-        tk.Label(skip_frame, text="Frame Skip:", fg="white", bg="#2C3E50").pack(anchor="w")
-        tk.Scale(skip_frame, from_=0, to=5, variable=self.frame_skip, 
+        # Advanced Settings
+        tk.Label(control_frame, text="ADVANCED SETTINGS", font=("Arial", 12, "bold"),
+                fg="#3498DB", bg="#2C3E50").pack(anchor="w", pady=(10, 5))
+        
+        # Smoothing checkbox
+        tk.Checkbutton(control_frame, text="Apply Smoothing", variable=self.use_smoothing,
+                      bg="#2C3E50", fg="white", selectcolor="#2C3E50",
+                      activebackground="#2C3E50", activeforeground="white").pack(anchor="w")
+        
+        # Kalman filtering checkbox
+        tk.Checkbutton(control_frame, text="Apply Kalman Filter", variable=self.use_kalman,
+                      bg="#2C3E50", fg="white", selectcolor="#2C3E50",
+                      activebackground="#2C3E50", activeforeground="white").pack(anchor="w")
+        
+        # Max consecutive failures
+        fail_frame = tk.Frame(control_frame, bg="#2C3E50")
+        fail_frame.pack(fill="x", pady=5)
+        tk.Label(fail_frame, text="Max Recovery Attempts:", fg="white", bg="#2C3E50").pack(anchor="w")
+        tk.Scale(fail_frame, from_=5, to=30, variable=self.max_consecutive_failures,
                 orient=tk.HORIZONTAL, bg="#2C3E50", fg="white").pack(fill="x")
         
         # Action Buttons
@@ -205,10 +199,38 @@ class ObjectTrackingApp:
             self.bbox = cv2.selectROI("Select ROI", frame, fromCenter=False, showCrosshair=True)
             cv2.destroyWindow("Select ROI")
             if self.bbox != (0, 0, 0, 0):
+                # Store initial ROI features
+                x, y, w, h = self.bbox
+                roi = frame[y:y+h, x:x+w]
+                _, self.initial_roi_features = self.orb.detectAndCompute(roi, None)
                 self.init_tracker(frame)
                 self.trajectory.clear()
                 self.last_positions.clear()
                 self.status_lbl.config(text="Status: Tracking", fg="lime")
+
+    def compare_features(self, current_roi):
+        # Compare features between initial ROI and current ROI
+        try:
+            # Detect features in current ROI
+            _, current_features = self.orb.detectAndCompute(current_roi, None)
+            
+            if current_features is None or self.initial_roi_features is None:
+                return False
+            
+            # Create BF matcher and match features
+            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+            matches = bf.match(self.initial_roi_features, current_features)
+            
+            # Sort matches by distance
+            matches = sorted(matches, key=lambda x: x.distance)
+            
+            # Calculate similarity score based on number and quality of matches
+            if len(matches) > 10:  # Minimum number of matches threshold
+                avg_distance = sum(m.distance for m in matches[:10]) / 10
+                return avg_distance < 50  # Distance threshold
+            return False
+        except Exception:
+            return False
 
     def init_tracker(self, frame):
         # Initialize tracker with current frame and bbox
@@ -279,99 +301,93 @@ class ObjectTrackingApp:
         return bbox
 
     def update(self):
-        start_time = time.time()
-        
         ret, frame = self.cap.read()
         if ret:
-            self.last_frame = frame.copy()
-            self.frame_count += 1
-            
-            # Process every nth frame based on frame_skip
-            if self.frame_count % (self.frame_skip.get() + 1) == 0:
-                if self.tracking and self.tracker:
-                    # Try to update tracker
-                    success, new_bbox = self.tracker.update(frame)
-                    
-                    # Check if tracking is still reliable
-                    if success:
-                        # Apply Kalman filtering for prediction
-                        if self.kalman_filter is not None:
-                            # Update Kalman with new measurement
-                            self.update_kalman(new_bbox)
-                            # Get prediction
-                            predicted_bbox = self.predict_position()
-                            
-                            # Use prediction or actual depending on confidence
-                            if self.consecutive_failures > 0:
-                                # Blend predicted and actual positions
-                                blend_factor = min(self.consecutive_failures / self.max_consecutive_failures, 0.8)
-                                x1, y1, w1, h1 = predicted_bbox
-                                x2, y2, w2, h2 = new_bbox
-                                blended_bbox = (
-                                    int(x1 * blend_factor + x2 * (1 - blend_factor)),
-                                    int(y1 * blend_factor + y2 * (1 - blend_factor)),
-                                    w2, h2
-                                )
-                                new_bbox = blended_bbox
-                            
-                        # Apply smoothing to reduce jitter
+            self.last_frame = frame.copy()       
+            if self.tracking and self.tracker:
+                # Try to update tracker
+                success, new_bbox = self.tracker.update(frame)
+                
+                # Check if tracking is still reliable
+                if success:
+                    # Apply Kalman filtering for prediction
+                    if self.use_kalman.get() and self.kalman_filter is not None:
+                        # Update Kalman with new measurement
+                        self.update_kalman(new_bbox)
+                        # Get prediction
+                        predicted_bbox = self.predict_position()
+                        
+                        # Use prediction or actual depending on confidence
+                        if self.consecutive_failures > 0:
+                            # Blend predicted and actual positions
+                            blend_factor = min(self.consecutive_failures / self.max_consecutive_failures.get(), 0.8)
+                            x1, y1, w1, h1 = predicted_bbox
+                            x2, y2, w2, h2 = new_bbox
+                            blended_bbox = (
+                                int(x1 * blend_factor + x2 * (1 - blend_factor)),
+                                int(y1 * blend_factor + y2 * (1 - blend_factor)),
+                                w2, h2
+                            )
+                            new_bbox = blended_bbox
+                        
+                    # Apply smoothing to reduce jitter if enabled
+                    if self.use_smoothing.get():
                         new_bbox = self.apply_smoothing(new_bbox)
+                    
+                    x, y, w, h = map(int, new_bbox)
+                    self.last_known_bbox = (x, y, w, h)
+                    self.consecutive_failures = 0
+                    
+                    # Draw rectangle and text
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.putText(frame, "Tracking", (x, y - 10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                    
+                    # Calculate and store center point for trajectory
+                    if self.show_trajectory.get():
+                        center = (int(x + w/2), int(y + h/2))
+                        self.trajectory.append(center)
                         
-                        x, y, w, h = map(int, new_bbox)
-                        self.last_known_bbox = (x, y, w, h)
-                        self.consecutive_failures = 0
-                        
-                        # Draw rectangle and text
-                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                        cv2.putText(frame, "Tracking", (x, y - 10), 
-                                  cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                        
-                        # Calculate and store center point for trajectory
-                        if self.show_trajectory.get():
-                            center = (int(x + w/2), int(y + h/2))
-                            self.trajectory.append(center)
+                        # Draw trajectory
+                        if len(self.trajectory) > 1:
+                            for i in range(1, len(self.trajectory)):
+                                thickness = int(np.sqrt(64 / float(i + 1)) * 1.5)
+                                cv2.line(frame, self.trajectory[i-1], self.trajectory[i], 
+                                        (0, 0, 255), thickness)
+                else:
+                    # Tracking failed
+                    self.consecutive_failures += 1
+                    
+                    if self.consecutive_failures < self.max_consecutive_failures.get():
+                        # Try to recover using Kalman prediction
+                        if self.kalman_filter is not None and self.last_known_bbox is not None:
+                            predicted_bbox = self.predict_position()
+                            x, y, w, h = map(int, predicted_bbox)
                             
-                            # Draw trajectory
-                            if len(self.trajectory) > 1:
-                                for i in range(1, len(self.trajectory)):
-                                    thickness = int(np.sqrt(64 / float(i + 1)) * 1.5)
-                                    cv2.line(frame, self.trajectory[i-1], self.trajectory[i], 
-                                           (0, 0, 255), thickness)
+                            # Draw rectangle with different color to indicate prediction
+                            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 165, 255), 2)
+                            cv2.putText(frame, "Predicted", (x, y - 10), 
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
+                            
+                            self.status_lbl.config(text=f"Status: Recovering ({self.consecutive_failures})", fg="orange")
                     else:
-                        # Tracking failed
-                        self.consecutive_failures += 1
-                        
-                        if self.consecutive_failures < self.max_consecutive_failures:
-                            # Try to recover using Kalman prediction
-                            if self.kalman_filter is not None and self.last_known_bbox is not None:
-                                predicted_bbox = self.predict_position()
-                                x, y, w, h = map(int, predicted_bbox)
-                                
-                                # Draw rectangle with different color to indicate prediction
-                                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 165, 255), 2)
-                                cv2.putText(frame, "Predicted", (x, y - 10), 
-                                          cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
-                                
-                                self.status_lbl.config(text=f"Status: Recovering ({self.consecutive_failures})", fg="orange")
-                        else:
-                            # Too many consecutive failures, reset tracker
-                            if self.last_known_bbox is not None:
-                                # Try to reinitialize with last known position
+                        # Too many consecutive failures, reset tracker
+                        if self.last_known_bbox is not None:
+                            # Extract current ROI using last known bbox
+                            x, y, w, h = self.last_known_bbox
+                            current_roi = frame[max(0, y):min(frame.shape[0], y+h), 
+                                                max(0, x):min(frame.shape[1], x+w)]
+                            
+                            # Check feature similarity
+                            if self.compare_features(current_roi):
+                                # Features match, reinitialize tracker
                                 self.bbox = self.last_known_bbox
                                 self.init_tracker(frame)
                                 self.status_lbl.config(text="Status: Reinitialized", fg="yellow")
                             else:
-                                self.status_lbl.config(text="Status: Lost Track", fg="red")
-            
-            # Calculate and display FPS
-            end_time = time.time()
-            process_time = end_time - start_time
-            self.process_times.append(process_time)
-            
-            if len(self.process_times) > 0:
-                avg_process_time = sum(self.process_times) / len(self.process_times)
-                self.fps = 1.0 / avg_process_time if avg_process_time > 0 else 0
-                self.fps_lbl.config(text=f"FPS: {self.fps:.1f}")
+                                # Features don't match, signal track loss
+                                self.status_lbl.config(text="Status: Object Changed/Lost", fg="red")
+                                self.reset()
             
             # Convert to RGB for display
             img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
