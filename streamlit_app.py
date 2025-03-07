@@ -1,5 +1,4 @@
 import app_tkinter
-import tkinter as tk
 import streamlit as st
 
 # Basic page config
