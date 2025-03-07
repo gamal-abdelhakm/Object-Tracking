@@ -1,4 +1,4 @@
-import app_tkinter
+import app
 import streamlit as st
 
 # Basic page config
@@ -9,9 +9,31 @@ st.title("Object Tracking")
 st.markdown("A real-time object tracking application built with Python, OpenCV, and Tkinter. The application provides multiple tracking algorithms and advanced features like Kalman filtering and trajectory visualization.")
 st.markdown("---")
 
-# Start tracking
+# Control parameters
+st.sidebar.header("Tracking Settings")
+tracking_algorithm = st.sidebar.selectbox(
+    "Tracking Algorithm",
+    ["CSRT", "KCF", "MOSSE"],
+    index=0
+)
+
+# Advanced settings
+show_trajectory = st.sidebar.checkbox("Show Trajectory", value=True)
+use_kalman = st.sidebar.checkbox("Use Kalman Filter", value=True)
+auto_recovery = st.sidebar.checkbox("Auto Recovery", value=True)
+trail_length = st.sidebar.slider("Trail Length", 1, 100, 30)
+recovery_attempts = st.sidebar.slider("Recovery Attempts", 1, 10, 3)
+
+# Start tracking with parameters
 if st.button("Start Tracking"):
-    app_tkinter.run()
+    app.main(
+        tracker_type=tracking_algorithm,
+        show_trajectory=show_trajectory,
+        use_kalman=use_kalman,
+        auto_recovery=auto_recovery,
+        trail_length=trail_length,
+        recovery_attempts=recovery_attempts
+    )
 
 # Features section
 with st.expander("Features"):
