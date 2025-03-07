@@ -1,68 +1,56 @@
-# Object Tracking App
+# Advanced Object Tracking Application
 
-## Overview
+A real-time object tracking application built with Python, OpenCV, and Tkinter. The application provides multiple tracking algorithms and advanced features like Kalman filtering and trajectory visualization.
 
-This application provides real-time object tracking using OpenCV and Tkinter for a simple GUI interface. The user can select an object to track using various tracking algorithms, start or stop tracking, and monitor the live feed with visual feedback.
+## Features
 
-## Implementation Details
-
-- **GUI Framework:** Tkinter is used to create the user interface.
-- **Video Processing:** OpenCV captures frames from the webcam.
-- **Tracking Algorithms:** The user can choose from multiple tracking methods (MIL, KCF, CSRT).
-- **Real-time Updates:** The application continuously updates the video feed with tracking results.
-- **User Controls:** Options to select a region of interest (ROI), start tracking, and stop tracking.
-
-## How It Works
-
-1. Run the script to launch the application.
-2. Choose a tracking algorithm from the dropdown menu.
-3. Click "Select Area" to define the object to track.
-4. Start tracking to see real-time object movement.
-5. Stop tracking if needed.
+- Multiple tracking algorithms (CSRT, KCF, MOSSE)
+- Kalman filter for prediction and smoothing
+- Real-time trajectory visualization
+- Auto-recovery when tracking is lost
+- Performance metrics (FPS, confidence score, tracking time)
+- User-friendly GUI with dark theme
+- Configurable settings
 
 ## Requirements
 
-- Python 3.x
-- OpenCV (`cv2`)
-- PIL (`Pillow`)
-- Tkinter (comes with Python)
-
-## Installation
-
-Ensure you have the required dependencies installed:
-
-```bash
-pip install opencv-contrib-python pillow
+```python
+opencv-python
+numpy
+pillow
+tkinter
 ```
 
-## Running the Application
+## Usage
 
-Simply execute the Python script:
-
+1. Run the application:
 ```bash
-python app.py
+python app_tkinter.py
 ```
 
----
+2. Select a tracking algorithm from the dropdown menu
+3. Click "Select ROI" and draw a box around the object you want to track
+4. Press ENTER to confirm selection
+5. Use the control buttons to start/stop tracking
 
-## **Conclusion**
+## Advanced Settings
 
-- For this task, the best tracking algorithm to use is CSRT. 
----
+- **Show Trajectory**: Toggle trajectory visualization
+- **Use Kalman Filter**: Enable/disable Kalman filter predictions
+- **Auto Recovery**: Automatically attempt to recover lost tracking
+- **Trail Length**: Adjust the length of the trajectory trail
+- **Recovery Attempts**: Set maximum number of recovery attempts
 
- **Why?** : CSRT is the best balance of accuracy and performance for real-time tracking with a webcam.
+## Controls
 
-- **✔ High Accuracy** – Better than KCF & MOSSE.
-- **✔ Handles Occlusions** – Recovers lost objects.
-- **✔ No Deep Learning Needed** – Works without AI models.
-- **✔ Runs on CPU** – No GPU required.
-- **✔ Easy to Use** – Built into OpenCV.
----
+- **Select ROI**: Choose the object to track
+- **Start Tracking**: Begin tracking the selected object
+- **Stop Tracking**: Pause the tracking
+- **Reset**: Clear current tracking and settings
 
-**Why Not Others?**
+## Performance
 
-- **KCF** – Faster but less accurate.
-- **MOSSE** – Fastest but weak with occlusions.
-- **MIL** – Struggles with object disappearance.
-- **ByteTrack/DeepSORT** – Overkill for a single object.
-- **MedianFlow** – Fails with fast-moving objects.
+The application displays real-time metrics:
+- FPS (Frames Per Second)
+- Tracking confidence score
+- Total tracking time
