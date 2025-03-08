@@ -1,5 +1,5 @@
 # Object Tracking Application
-
+ 
 A real-time object tracking application built with Python, OpenCV, and Tkinter. The application provides multiple tracking algorithms and advanced features like Kalman filtering and trajectory visualization.
 
 ## Features
